@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Riverland Yards, Wairarapa — The Muster</title>
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#8e979b;height:100%;
+    font-family:Georgia,'Times New Roman',serif;-webkit-user-select:none;user-select:none;}
+  canvas{display:block;}
+  #hud{position:fixed;top:14px;left:16px;color:#efeadf;text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none;}
+  #hud .station{font-size:13px;letter-spacing:.28em;text-transform:uppercase;opacity:.85;}
+  #hud .sub{font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-top:2px;}
+  #counter{position:fixed;top:14px;right:16px;text-align:right;color:#efeadf;text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none;}
+  #counter .big{font-size:30px;font-style:italic;}
+  #counter .lbl{font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.6;}
+  #timer{position:fixed;bottom:16px;right:16px;color:#efeadf;font-size:16px;font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none;opacity:.8;}
+  #hint{position:fixed;bottom:16px;left:0;right:0;text-align:center;color:#efeadf;font-size:11px;
+    letter-spacing:.2em;text-transform:uppercase;opacity:.65;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.5);
+    transition:opacity 1s;}
+  #intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(20,26,28,.45);color:#efeadf;text-align:center;transition:opacity .8s;padding:20px;}
+  #intro h1{font-size:34px;font-weight:normal;font-style:italic;letter-spacing:.06em;margin:0;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  #intro .loc{font-size:11px;letter-spacing:.3em;text-transform:uppercase;opacity:.7;margin-top:10px;}
+  #intro .task{font-size:14px;margin-top:26px;opacity:.9;max-width:420px;line-height:1.6;}
+  #intro .go{font-size:11px;letter-spacing:.25em;text-transform:uppercase;margin-top:30px;opacity:.75;
+    animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:.75}50%{opacity:.3}}
+  #win{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(20,26,28,.55);color:#efeadf;text-align:center;}
+  #win h1{font-size:40px;font-style:italic;font-weight:normal;margin:0;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  #win .time{font-size:15px;letter-spacing:.15em;margin-top:12px;opacity:.85;}
+  #win .row,#bossEnd .row{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap;justify-content:center;}
+  #win button,#bossEnd button{background:none;border:1px solid rgba(239,234,223,.5);color:#efeadf;
+    font-family:Georgia,serif;font-size:12px;letter-spacing:.25em;text-transform:uppercase;
+    padding:12px 26px;cursor:pointer;}
+  #win button:active,#bossEnd button:active{background:rgba(239,234,223,.15);}
+  #boss{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(16,20,22,.74);color:#efeadf;text-align:center;padding:24px;cursor:pointer;}
+  #boss .face{width:185px;height:auto;filter:drop-shadow(0 6px 16px rgba(0,0,0,.5));
+    animation:chuckle .55s ease-in-out 5;}
+  @keyframes chuckle{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg) translateY(3px)}75%{transform:rotate(3deg)}}
+  #boss .who{font-size:10px;letter-spacing:.3em;text-transform:uppercase;opacity:.6;margin-top:16px;}
+  #boss .say{font-size:16px;font-style:italic;max-width:440px;line-height:1.65;margin-top:10px;}
+  #boss .dir{font-size:11px;opacity:.55;margin-top:10px;}
+  #boss .go{font-size:11px;letter-spacing:.25em;text-transform:uppercase;margin-top:26px;opacity:.75;animation:pulse 2s infinite;}
+  #bossEnd{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(20,26,28,.55);color:#efeadf;text-align:center;padding:24px;}
+  #bossEnd h1{font-size:36px;font-style:italic;font-weight:normal;margin:0;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  #bossEnd .line{font-size:14px;margin-top:14px;opacity:.9;max-width:460px;line-height:1.6;}
+  #stick{position:fixed;left:24px;bottom:24px;width:110px;height:110px;border-radius:50%;
+    border:1px solid rgba(239,234,223,.3);background:rgba(20,26,28,.15);display:none;touch-action:none;}
+  #thumb{position:absolute;left:50%;top:50%;width:44px;height:44px;border-radius:50%;
+    background:rgba(239,234,223,.35);transform:translate(-50%,-50%);}
+  #fullscreenBtn{position:fixed;bottom:44px;right:16px;z-index:99;background:rgba(20,26,28,.55);border:1px solid rgba(239,234,223,.3);color:#efeadf;font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:7px 12px;cursor:pointer;border-radius:4px;opacity:.7;font-family:Georgia,'Times New Roman',serif;}
+  #fullscreenBtn:hover{opacity:1;}
+  @media (pointer:coarse){ #stick{display:block;} #hint{display:none;} }
+</style>
+</head>
+<body>
+<div id="hud"><div class="station">Riverland Yards</div><div class="sub">Wairarapa · New Zealand · Winter</div></div>
+<div id="counter"><div class="big"><span id="penned">0</span>/8</div><div class="lbl">In the pen</div></div>
+<div id="timer">0:00</div>
+<div id="hint">W A S D to ride · push the mob through the gate</div>
+<div id="stick"><div id="thumb"></div></div>
+<button id="fullscreenBtn">⛶ Fullscreen</button>
+<div id="intro">
+  <h1>The Muster</h1>
+  <div class="loc">Riverland Yards · Wairarapa, New Zealand</div>
+  <div class="task">Rain coming in sideways off the Tararuas, river running high and grey.<br>Eight head loose between the water and the yards. You, Fant, and a cold afternoon to get them in.</div>
+  <div class="go">Ride to begin</div>
+</div>
+<div id="win"><h1>Mob yarded.</h1><div class="time" id="wintime"></div>
+  <div class="row">
+    <button onclick="startBoss()">Boss fight</button>
+    <button onclick="resetGame()">Ride again</button>
+  </div>
+</div>
+<div id="boss">
+  <svg class="face" viewBox="0 0 200 224" xmlns="http://www.w3.org/2000/svg">
+    <path d="M28 174 L100 152 L172 174 L172 224 L28 224 Z" fill="#55603c"/>
+    <g stroke="#3e4a2c" stroke-width="7" opacity="0.55">
+      <path d="M28 190 H172 M28 208 H172"/><path d="M52 158 V224 M100 152 V224 M148 158 V224"/>
+    </g>
+    <g stroke="#7a2e22" stroke-width="1.6" opacity="0.8">
+      <path d="M28 182 H172 M28 200 H172 M28 218 H172"/><path d="M64 156 V224 M136 156 V224"/>
+    </g>
+    <path d="M78 158 L100 178 L122 158 L122 152 L100 160 L78 152 Z" fill="#3e4a2c"/>
+    <rect x="84" y="136" width="32" height="26" fill="#c98f74"/>
+    <ellipse cx="100" cy="96" rx="52" ry="58" fill="#d9a184"/>
+    <ellipse cx="86" cy="52" rx="20" ry="10" fill="#e7b697" opacity="0.75"/>
+    <ellipse cx="47" cy="102" rx="9" ry="14" fill="#cf9377"/>
+    <ellipse cx="153" cy="102" rx="9" ry="14" fill="#cf9377"/>
+    <path d="M50 78 Q26 70 20 88 Q15 104 34 106 Q24 114 34 122 Q44 128 52 118 Q46 98 50 78 Z" fill="#f0ede6"/>
+    <path d="M150 78 Q174 70 180 88 Q185 104 166 106 Q176 114 166 122 Q156 128 148 118 Q154 98 150 78 Z" fill="#f0ede6"/>
+    <path d="M60 80 Q74 70 88 77" stroke="#f0ede6" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M112 76 Q126 69 140 79" stroke="#f0ede6" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <ellipse cx="76" cy="92" rx="8.5" ry="6.5" fill="#fdfcf9"/>
+    <circle cx="77.5" cy="93" r="4.2" fill="#4a7fb5"/><circle cx="78.5" cy="92" r="1.6" fill="#1f2a33"/>
+    <ellipse cx="124" cy="92" rx="8.5" ry="5" fill="#fdfcf9"/>
+    <circle cx="125" cy="93" r="4" fill="#4a7fb5"/><circle cx="126" cy="92" r="1.5" fill="#1f2a33"/>
+    <path d="M114 87 Q124 82 134 87" stroke="#d9a184" stroke-width="5" fill="none"/>
+    <path d="M99 94 Q107 108 103 116 Q99 121 91 118" stroke="#c07f61" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <path d="M54 116 Q100 164 146 116 Q142 156 100 160 Q58 156 54 116 Z" fill="#b8b2a6" opacity="0.30"/>
+    <g stroke="#efece4" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 7">
+      <path d="M58 122 Q100 158 142 122" fill="none"/>
+      <path d="M64 132 Q100 164 136 132" fill="none"/>
+      <path d="M74 142 Q100 166 126 142" fill="none"/>
+    </g>
+    <path d="M76 136 Q98 148 122 136 Q126 132 130 126" stroke="#7c4a3a" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  </svg>
+  <div class="who">Unc</div>
+  <div class="say">"Quick mate, the ewe is heading toward the water, get on foot, and catch him. Don't let him get away!!!"</div>
+  <div class="dir">— he laughs, smirking, already walking away —</div>
+  <div class="go">Tap / press any key to give chase</div>
+</div>
+<div id="bossEnd">
+  <h1 id="bossEndTitle"></h1>
+  <div class="line" id="bossEndLine"></div>
+  <div class="row">
+    <button onclick="retryChase()">Chase again</button>
+    <button onclick="resetGame()">Ride again</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============ SCENE ============
+const scene = new THREE.Scene();
+const FOG = 0x8e979b;
+scene.background = new THREE.Color(FOG);
+scene.fog = new THREE.FogExp2(FOG, 0.0085);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+function onResize(){
+  const w=window.innerWidth, h=window.innerHeight;
+  camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
+}
+onResize();
+addEventListener('resize', onResize);
+setTimeout(onResize, 100);
+
+document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement){
+    (el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen).call(el);
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen).call(document);
+  }
+});
+document.addEventListener('fullscreenchange', ()=>{
+  document.getElementById('fullscreenBtn').textContent =
+    document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+  setTimeout(onResize, 50);
+});
+
+const hemi = new THREE.HemisphereLight(0xaab4b8, 0x3a4438, 0.95);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xc8ccc8, 0.35);
+sun.position.set(-40, 60, 20);
+scene.add(sun);
+
+// ============ TERRAIN ============
+function riverX(z){ return -55 + Math.sin(z*0.02)*14 + Math.sin(z*0.007+2)*8; }
+function trackZ(x){ return -34 + Math.sin(x*0.04)*2.5; } // farm bike track, runs right–left just out from the yards
+function terrainH(x, z){
+  const d = Math.sqrt(x*x + z*z);
+  const ramp = Math.min(1, Math.max(0, (d-70)/110));
+  let h = Math.sin(x*0.015)*Math.cos(z*0.012)*11 + Math.sin(x*0.04+2.1)*Math.sin(z*0.035+1.3)*4.5;
+  h *= (0.12 + 0.88*ramp);
+  h += Math.sin(x*0.09)*Math.cos(z*0.08)*0.5;
+  // river valley
+  const rd = Math.abs(x - riverX(z));
+  let w = Math.max(0, 1 - rd/16);
+  w = w*w*(3-2*w);
+  h = h*(1-w) + (-2.6)*w;
+  return h;
+}
+function noise2(x,z){ return Math.sin(x*0.31+z*0.17)*Math.cos(x*0.13-z*0.41); }
+
+const tGeo = new THREE.PlaneGeometry(620, 620, 130, 130);
+tGeo.rotateX(-Math.PI/2);
+{
+  const pos = tGeo.attributes.position;
+  const colors = new Float32Array(pos.count*3);
+  const cGrass = new THREE.Color(0x4f5d43), cDark = new THREE.Color(0x3d4a36),
+        cMud = new THREE.Color(0x4d4237), cTuss = new THREE.Color(0x7b7a5c),
+        cGravel = new THREE.Color(0x746e63), cDirt = new THREE.Color(0x5c4a37);
+  const c = new THREE.Color();
+  for(let i=0;i<pos.count;i++){
+    const x = pos.getX(i), z = pos.getZ(i);
+    const h = terrainH(x,z);
+    pos.setY(i, h);
+    const n = noise2(x,z);
+    c.copy(cGrass).lerp(cDark, (n+1)*0.35);
+    if(h > 4) c.lerp(cTuss, Math.min(1,(h-4)/10)*0.7);           // tussock on hills
+    const dPen = Math.sqrt(x*x + (z+60)*(z+60));
+    if(dPen < 26 && n > -0.2) c.lerp(cMud, 0.55*(1-dPen/26));    // churned mud round the yards
+    const rd = Math.abs(x - riverX(z));
+    if(rd < 24) c.lerp(cGravel, (1-rd/24)*0.9);                  // wide shingle banks
+    const td = Math.abs(z - trackZ(x));
+    if(td < 3.0) c.lerp(cDirt, (1-td/3.0)*0.35);                 // worn corridor under the wheel ruts
+    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+  }
+  tGeo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+  tGeo.computeVertexNormals();
+}
+scene.add(new THREE.Mesh(tGeo, new THREE.MeshLambertMaterial({vertexColors:true, flatShading:true})));
+
+// river water — high and grey
+const wGeo = new THREE.PlaneGeometry(24, 620, 2, 130);
+wGeo.rotateX(-Math.PI/2);
+{
+  const wp = wGeo.attributes.position;
+  for(let i=0;i<wp.count;i++){
+    wp.setX(i, wp.getX(i) + riverX(wp.getZ(i)));
+    wp.setY(i, -1.2);
+  }
+}
+const water = new THREE.Mesh(wGeo, new THREE.MeshLambertMaterial({color:0x4e5a63, transparent:true, opacity:0.88}));
+scene.add(water);
+
+// ============ NATIVE BUSH ============
+const PX1=-14, PX2=14, PZ1=-74, PZ2=-46, GX1=-5, GX2=5; // yard coords (used by bush placement below)
+// instanced pools — hundreds of trees, four draw calls
+function pool(geo, mat, cap){ const m = new THREE.InstancedMesh(geo, mat, cap); m.count = 0; m.frustumCulled = false; m.userData.cap = cap; return m; }
+const trunkPool = pool(new THREE.CylinderGeometry(0.09, 0.16, 1, 5), new THREE.MeshLambertMaterial({color:0xffffff}), 520);
+const blobPool  = pool(new THREE.SphereGeometry(0.7, 5, 4), new THREE.MeshLambertMaterial({color:0xffffff, flatShading:true}), 1250);
+const conePool  = pool(new THREE.ConeGeometry(1, 1, 6), new THREE.MeshLambertMaterial({color:0x3c5236, flatShading:true}), 240);
+const frondPool = pool(new THREE.PlaneGeometry(0.4, 2.4), new THREE.MeshLambertMaterial({color:0x33502f, side:THREE.DoubleSide}), 460);
+const TD = new THREE.Object3D(), TC = new THREE.Color();
+function inst(p, x,y,z, rx,ry,rz, sx,sy,sz, col){
+  if(p.count >= p.userData.cap) return;
+  TD.position.set(x,y,z); TD.rotation.set(rx,ry,rz); TD.scale.set(sx,sy,sz); TD.updateMatrix();
+  p.setMatrixAt(p.count, TD.matrix);
+  if(col !== undefined) p.setColorAt(p.count, TC.set(col).offsetHSL(0, 0, (Math.random()-0.5)*0.06));
+  p.count++;
+}
+const MANUKA=0x3a4a33, CABBAGE=0x2c4030, TRUNK=0x4a3b2c, DARKTRUNK=0x3a2f24;
+function manukaTree(x,z,s){ // dominant — twiggy lean, fine dark canopy
+  const y0 = terrainH(x,z)-0.1, h = (2.3+Math.random()*1.9)*s;
+  inst(trunkPool, x, y0+h/2, z, 0, Math.random()*6.28, (Math.random()-0.5)*0.3, s*0.9, h, s*0.9, DARKTRUNK);
+  for(let i=0;i<3;i++){
+    inst(blobPool, x+(Math.random()-0.5)*1.5*s, y0+h-0.5*s+Math.random()*1.1*s, z+(Math.random()-0.5)*1.5*s,
+      Math.random(), Math.random(), Math.random(),
+      s*(0.9+Math.random()*0.8), s*(0.65+Math.random()*0.4), s*(0.9+Math.random()*0.8), MANUKA);
+  }
+}
+function cabbageTree(x,z,s){
+  const y0 = terrainH(x,z)-0.1, h = (3+Math.random()*2.5)*s;
+  inst(trunkPool, x, y0+h/2, z, 0,0,0, s*0.85, h, s*0.85, TRUNK);
+  const n = 1+Math.floor(Math.random()*2.4);
+  for(let i=0;i<n;i++){
+    inst(blobPool, x+(Math.random()-0.5)*0.9*s, y0+h+(Math.random()-0.3)*0.7*s, z+(Math.random()-0.5)*0.9*s,
+      0, Math.random()*6.28, 0, s, s*1.35, s, CABBAGE);
+  }
+}
+function ponga(x,z,s){
+  const y0 = terrainH(x,z)-0.1, h = (1.8+Math.random()*1.6)*s;
+  inst(trunkPool, x, y0+h/2, z, 0,0,0, s*2.4, h, s*2.4, DARKTRUNK);
+  for(let i=0;i<6;i++){
+    const a = i/6*Math.PI*2;
+    inst(frondPool, x+Math.cos(a)*0.9*s, y0+h+0.25*s, z+Math.sin(a)*0.9*s,
+      -Math.PI/2+0.55, -a+Math.PI/2, 0, s, s, s);
+  }
+}
+function totara(x,z,s){
+  const y0 = terrainH(x,z)-0.1;
+  inst(trunkPool, x, y0+1.1*s, z, 0,0,0, s*2.2, 2.2*s, s*2.2, TRUNK);
+  let y = 2.2*s, r = 2.1*s;
+  for(let i=0;i<3;i++){
+    inst(conePool, x, y0+y+1.1*s, z, 0, Math.random()*6.28, 0, r, 2.6*s, r);
+    y += 1.5*s; r *= 0.68;
+  }
+}
+function scrub(x,z,s){
+  const y0 = terrainH(x,z)-0.1;
+  const n = 1+Math.floor(Math.random()*2);
+  for(let i=0;i<n;i++){
+    const b = 0.7+Math.random()*0.6;
+    inst(blobPool, x+(Math.random()-0.5)*0.8, y0+(0.5+Math.random()*0.5)*s, z+(Math.random()-0.5)*0.8,
+      Math.random(), Math.random(), Math.random(), s*b, s*b*0.8, s*b, Math.random()<0.5?MANUKA:CABBAGE);
+  }
+}
+const builders = [manukaTree, manukaTree, manukaTree, manukaTree, cabbageTree, ponga, totara, scrub, scrub];
+function plant(x, z, s){
+  if(x > PX1-5 && x < PX2+5 && z > PZ1-5 && z < PZ2+5) return;   // never inside the yards
+  builders[Math.floor(Math.random()*builders.length)](x, z, s);
+}
+// dense bush across the river — solid, can't see through
+for(let i=0;i<230;i++){
+  const z = -190 + Math.random()*380;
+  const x = riverX(z) - 15 - Math.random()*58;
+  plant(x, z, 0.9 + Math.random()*1.1);
+}
+// thick flanks either side of the yards (kept off the riverbank)
+for(let i=0;i<36;i++){
+  const z = PZ1 - 4 + Math.random()*(PZ2-PZ1+4);
+  const x = PX1 - 7 - Math.random()*13;
+  if(x - riverX(z) > 14) plant(x, z, 0.7 + Math.random()*0.6);
+}
+for(let i=0;i<42;i++){
+  const z = PZ1 - 4 + Math.random()*(PZ2-PZ1+4);
+  const x = PX2 + 7 + Math.random()*20;
+  plant(x, z, 0.7 + Math.random()*0.6);
+}
+// solid stand behind the yards
+for(let i=0;i<70;i++){
+  const x = PX1 - 18 + Math.random()*(PX2-PX1+36);
+  const z = PZ1 - 8 - Math.random()*32;
+  if(x - riverX(z) > 14) plant(x, z, 0.8 + Math.random()*0.8);
+}
+for(const p of [trunkPool, blobPool, conePool, frondPool]){
+  p.instanceMatrix.needsUpdate = true;
+  if(p.instanceColor) p.instanceColor.needsUpdate = true;
+  scene.add(p);
+}
+
+// ============ RIVER STONES ============
+const N_ST = 900;
+const stones = new THREE.InstancedMesh(
+  new THREE.DodecahedronGeometry(0.5, 0),
+  new THREE.MeshLambertMaterial({color:0x76716a, flatShading:true}),
+  N_ST);
+{
+  const dummy = new THREE.Object3D();
+  let si = 0;
+  function stone(x, z, s){
+    if(si >= N_ST) return;
+    dummy.position.set(x, terrainH(x,z) + s*0.2, z);
+    dummy.rotation.set(Math.random()*3, Math.random()*3, Math.random()*3);
+    dummy.scale.set(s*(0.8+Math.random()*0.7), s*(0.5+Math.random()*0.5), s*(0.8+Math.random()*0.7));
+    dummy.updateMatrix();
+    stones.setMatrixAt(si++, dummy.matrix);
+  }
+  // heavy stone coverage on both banks
+  for(let i=0;i<620;i++){
+    const z = -190 + Math.random()*380;
+    const side = Math.random()<0.5 ? -1 : 1;
+    const off = (3 + Math.pow(Math.random(), 0.75) * 19) * side;
+    stone(riverX(z)+off, z, 0.15 + Math.random()*0.65);
+  }
+  // boulders breaking the water in the channel
+  for(let i=0;i<160;i++){
+    const z = -190 + Math.random()*380;
+    stone(riverX(z)+(Math.random()-0.5)*8, z, 0.2 + Math.random()*0.7);
+  }
+  // stony ford where the bike track crosses
+  const fordX = riverX(-34);
+  for(let i=0;i<80;i++){
+    stone(fordX + (Math.random()-0.5)*14, trackZ(fordX) + (Math.random()-0.5)*6, 0.18 + Math.random()*0.45);
+  }
+  stones.instanceMatrix.needsUpdate = true;
+}
+scene.add(stones);
+
+// ============ ATV WHEEL RUTS ============
+const rutMat = new THREE.MeshLambertMaterial({color:0x4a392a, side:THREE.DoubleSide,
+  polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2});
+function rut(offset){
+  const positions = [], idx = [];
+  const half = 0.45, step = 3;
+  let vi = 0;
+  for(let x=-300; x<=300; x+=step){
+    const zc = trackZ(x) + offset;
+    positions.push(x, terrainH(x, zc-half)+0.08, zc-half);
+    positions.push(x, terrainH(x, zc+half)+0.08, zc+half);
+    if(vi > 0){
+      const a=vi*2-2, b=vi*2-1, c=vi*2, d=vi*2+1;
+      idx.push(a,b,c, c,b,d);
+    }
+    vi++;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, rutMat);
+  m.frustumCulled = false;
+  return m;
+}
+scene.add(rut(-0.85), rut(0.85)); // twin tyre lines, quad-bike width apart
+
+// ============ PEN ============
+const woodMat = new THREE.MeshLambertMaterial({color:0x4a4034});
+const penGroup = new THREE.Group();
+function fenceRun(x1,z1,x2,z2){
+  const dx=x2-x1, dz=z2-z1, len=Math.sqrt(dx*dx+dz*dz), n=Math.round(len/3);
+  for(let i=0;i<=n;i++){
+    const x=x1+dx*i/n, z=z1+dz*i/n, y=terrainH(x,z);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.22,1.7,0.22), woodMat);
+    post.position.set(x, y+0.85, z); penGroup.add(post);
+  }
+  for(const ry of [0.6, 1.25]){
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(len,0.12,0.1), woodMat);
+    rail.position.set((x1+x2)/2, terrainH((x1+x2)/2,(z1+z2)/2)+ry, (z1+z2)/2);
+    rail.rotation.y = Math.atan2(-dz, dx);
+    penGroup.add(rail);
+  }
+}
+fenceRun(PX1,PZ1,PX2,PZ1);          // back
+fenceRun(PX1,PZ1,PX1,PZ2);          // left
+fenceRun(PX2,PZ1,PX2,PZ2);          // right
+fenceRun(PX1,PZ2,GX1,PZ2);          // front-left
+fenceRun(GX2,PZ2,PX2,PZ2);          // front-right
+scene.add(penGroup);
+// gate (swings shut on win)
+const gate = new THREE.Group();
+const gBar1 = new THREE.Mesh(new THREE.BoxGeometry(10,0.12,0.1), woodMat); gBar1.position.set(5,0.6,0);
+const gBar2 = gBar1.clone(); gBar2.position.y = 1.25;
+gate.add(gBar1, gBar2);
+gate.position.set(GX1, terrainH(GX1,PZ2), PZ2);
+gate.rotation.y = Math.PI/2 * 0.9; // open
+scene.add(gate);
+let gateTarget = gate.rotation.y;
+
+// ============ BUILD HELPERS ============
+function box(w,h,d,color){ return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshLambertMaterial({color})); }
+
+// ============ FANT + RIDER ============
+const WHITE=0xe8e6e1, BLACK=0x1c1c1c;
+const horse = new THREE.Group();
+const hBody = box(1.1,1.0,2.6, WHITE); hBody.position.y=1.55; horse.add(hBody);
+// piebald patches
+const p1 = box(1.14,0.64,1.0, BLACK); p1.position.set(0,1.78,-0.7); horse.add(p1);
+const p2 = box(1.14,0.5,0.7, BLACK); p2.position.set(0,1.4,0.85); horse.add(p2);
+const neck = box(0.55,1.1,0.6, WHITE); neck.position.set(0,2.25,1.35); neck.rotation.x=-0.5; horse.add(neck);
+const nPatch = box(0.58,0.5,0.62, BLACK); nPatch.position.set(0,2.0,1.25); nPatch.rotation.x=-0.5; horse.add(nPatch);
+const head = box(0.42,0.45,0.95, BLACK); head.position.set(0,2.85,1.85); head.rotation.x=0.35; horse.add(head);
+const blaze = box(0.16,0.2,0.5, WHITE); blaze.position.set(0,2.95,2.1); blaze.rotation.x=0.35; horse.add(blaze);
+const ear1 = box(0.1,0.28,0.08, BLACK); ear1.position.set(0.15,3.15,1.6); horse.add(ear1);
+const ear2 = ear1.clone(); ear2.position.x=-0.15; horse.add(ear2);
+const mane = box(0.12,0.9,0.35, BLACK); mane.position.set(0,2.55,1.15); mane.rotation.x=-0.5; horse.add(mane);
+const tail = box(0.18,1.0,0.18, BLACK); tail.position.set(0,1.4,-1.4); tail.rotation.x=0.5; horse.add(tail);
+const hLegs=[];
+for(const [lx,lz,ph] of [[0.38,0.95,0],[-0.38,0.95,Math.PI],[0.38,-0.95,Math.PI],[-0.38,-0.95,0]]){
+  const pivot = new THREE.Group(); pivot.position.set(lx,1.15,lz);
+  const upper = box(0.24,0.7,0.26, lz>0?WHITE:BLACK); upper.position.y=-0.35;
+  const lower = box(0.16,0.65,0.18, BLACK); lower.position.y=-0.95;
+  pivot.add(upper, lower); horse.add(pivot);
+  hLegs.push({pivot, ph});
+}
+// rider — oilskin, jeans, John Bulls, the hat
+const rider = new THREE.Group(); rider.position.set(0,2.15,-0.1);
+const torso = box(0.6,0.85,0.42, 0x3e3a2f); torso.position.y=0.55; rider.add(torso);         // oilskin
+const skirt = box(0.72,0.35,0.55, 0x36332a); skirt.position.y=0.12; rider.add(skirt);        // coat skirt over saddle
+const arm1 = box(0.16,0.55,0.16, 0x3e3a2f); arm1.position.set(0.4,0.6,0.12); arm1.rotation.x=-0.5; rider.add(arm1);
+const arm2 = arm1.clone(); arm2.position.x=-0.4; rider.add(arm2);
+for(const s of [1,-1]){
+  const leg = box(0.2,0.6,0.24, 0x3f5878); leg.position.set(0.42*s,-0.1,0.05); leg.rotation.z=0.25*s; rider.add(leg); // wranglers
+  const boot = box(0.14,0.3,0.3, 0x24201c); boot.position.set(0.55*s,-0.5,0.1); rider.add(boot);                      // John Bulls
+}
+const rHead = box(0.3,0.32,0.3, 0xc8a080); rHead.position.y=1.15; rider.add(rHead);
+const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.05,10), new THREE.MeshLambertMaterial({color:0x4a3826}));
+brim.position.y=1.34; rider.add(brim);
+const crown = box(0.36,0.22,0.42, 0x4a3826); crown.position.y=1.46; rider.add(crown);
+horse.add(rider);
+scene.add(horse);
+
+const player = {x:0, z:55, yaw:Math.PI, speed:0, phase:0};
+
+// ============ CATTLE ============
+const cows = [];
+const cowStarts = [];
+for(let i=0;i<8;i++){
+  const g = new THREE.Group();
+  const hereford = i%3===0;
+  const bodyC = hereford?0x6b3a26:0x1e1a18;
+  const b = box(1.0,0.95,2.2, bodyC); b.position.y=1.25; g.add(b);
+  const hd = box(0.45,0.5,0.6, hereford?0xddd6cc:bodyC); hd.position.set(0,1.5,1.3); g.add(hd);
+  for(const [lx,lz] of [[0.35,0.8],[-0.35,0.8],[0.35,-0.8],[-0.35,-0.8]]){
+    const l = box(0.2,0.85,0.2, bodyC); l.position.set(lx,0.45,lz); g.add(l);
+  }
+  scene.add(g);
+  const a = (i/8)*Math.PI*2;
+  const sx = Math.cos(a)*10 + (Math.random()-0.5)*6;
+  const sz = 12 + Math.sin(a)*9 + (Math.random()-0.5)*6;
+  cowStarts.push([sx,sz]);
+  cows.push({g, x:sx, z:sz, vx:0, vz:0, yaw:0, penned:false, ph:Math.random()*6});
+}
+
+// ============ RAIN ============
+const RAIN_N = 800;
+const rainPos = new Float32Array(RAIN_N*6);
+const rainDrops = [];
+for(let i=0;i<RAIN_N;i++) rainDrops.push({x:0,y:Math.random()*40,z:0,live:false});
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos,3));
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({color:0xc4cdd1, transparent:true, opacity:0.32}));
+rain.frustumCulled = false;
+scene.add(rain);
+const WIND = {x:-6, z:2};
+
+// ============ BREATH ============
+const breathTex = (()=>{
+  const c=document.createElement('canvas'); c.width=c.height=64;
+  const ctx=c.getContext('2d');
+  const gr=ctx.createRadialGradient(32,32,4,32,32,30);
+  gr.addColorStop(0,'rgba(235,238,240,0.9)'); gr.addColorStop(1,'rgba(235,238,240,0)');
+  ctx.fillStyle=gr; ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+})();
+const puffs=[];
+function puff(x,y,z, dx,dz){
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:breathTex, transparent:true, opacity:0.55, depthWrite:false}));
+  s.position.set(x,y,z); s.scale.setScalar(0.25);
+  scene.add(s);
+  puffs.push({s, life:0, dx, dz});
+}
+let breathT1=0.5, breathT2=1.2;
+
+// ============ ON-FOOT PLAYER & THE EWE (boss fight) ============
+const foot = new THREE.Group();
+{
+  const torso = box(0.55,0.7,0.32, 0x3e3a2f); torso.position.y=1.15; foot.add(torso);   // oilskin
+  const skirt = box(0.62,0.3,0.4, 0x36332a); skirt.position.y=0.75; foot.add(skirt);
+  const fHead = box(0.28,0.3,0.28, 0xc8a080); fHead.position.y=1.72; foot.add(fHead);
+  const fBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.46,0.05,10), new THREE.MeshLambertMaterial({color:0x4a3826}));
+  fBrim.position.y=1.9; foot.add(fBrim);
+  const fCrown = box(0.32,0.2,0.38, 0x4a3826); fCrown.position.y=2.0; foot.add(fCrown);
+}
+const fLegL=new THREE.Group(), fLegR=new THREE.Group(), fArmL=new THREE.Group(), fArmR=new THREE.Group();
+fLegL.position.set(0.15,0.85,0); fLegR.position.set(-0.15,0.85,0);
+fArmL.position.set(0.36,1.42,0); fArmR.position.set(-0.36,1.42,0);
+for(const g of [fLegL,fLegR]){
+  const up = box(0.17,0.5,0.2, 0x3f5878); up.position.y=-0.25; g.add(up);               // wranglers
+  const bt = box(0.14,0.24,0.3, 0x24201c); bt.position.set(0,-0.6,0.04); g.add(bt);     // John Bulls
+  foot.add(g);
+}
+for(const g of [fArmL,fArmR]){
+  const ar = box(0.13,0.5,0.13, 0x3e3a2f); ar.position.y=-0.25; g.add(ar);
+  foot.add(g);
+}
+foot.visible=false; scene.add(foot);
+const footP = {x:0, z:0};
+let footYaw=0, footSpeed=0, footPh=0;
+
+const eweG = new THREE.Group();
+{
+  const wool = box(0.75,0.7,1.15, 0xe8e2d4); wool.position.y=0.8; eweG.add(wool);
+  const lump = box(0.7,0.5,0.85, 0xe8e2d4); lump.position.y=1.05; lump.rotation.y=0.5; eweG.add(lump);
+  const eHead = box(0.26,0.3,0.42, 0xb8a998); eHead.position.set(0,1.0,0.75); eweG.add(eHead);
+  const e1 = box(0.06,0.14,0.1, 0xa4948a); e1.position.set(0.16,1.16,0.7); e1.rotation.z=0.6; eweG.add(e1);
+  const e2 = e1.clone(); e2.position.x=-0.16; e2.rotation.z=-0.6; eweG.add(e2);
+}
+const eweLegs=[];
+for(const [lx,lz,ph] of [[0.25,0.42,0],[-0.25,0.42,Math.PI],[0.25,-0.42,Math.PI],[-0.25,-0.42,0]]){
+  const pivot = new THREE.Group(); pivot.position.set(lx,0.5,lz);
+  const l = box(0.11,0.5,0.11, 0x6b625a); l.position.y=-0.25; pivot.add(l);
+  eweG.add(pivot); eweLegs.push({pivot, ph});
+}
+eweG.visible=false; scene.add(eweG);
+const eweP={x:0,z:0}, eweV={x:0,z:0};
+let ewePh=0, eweJink=0, eweJt=0, eweBolted=false, eweWx=0, eweWz=0;
+
+// ============ INPUT ============
+const keys = {};
+let started=false, won=false, startTime=0, joyX=0, joyY=0;
+let mode='ride', bossCut=false, chaseOver=false, eweCaught=false, catchT=0, timerRunning=false;
+addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; if(bossCut) beginChase(); else startGame(); });
+addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+const stick = document.getElementById('stick'), thumb = document.getElementById('thumb');
+function handleTouch(e){
+  const t = e.touches[0]; if(!t) return;
+  const r = stick.getBoundingClientRect();
+  let dx = t.clientX-(r.left+r.width/2), dy = t.clientY-(r.top+r.height/2);
+  const m = Math.sqrt(dx*dx+dy*dy), max = r.width/2;
+  if(m>max){dx*=max/m; dy*=max/m;}
+  thumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joyX = dx/max; joyY = -dy/max;
+  if(bossCut) beginChase(); else startGame(); e.preventDefault();
+}
+stick.addEventListener('touchstart', handleTouch, {passive:false});
+stick.addEventListener('touchmove', handleTouch, {passive:false});
+stick.addEventListener('touchend', ()=>{joyX=0;joyY=0;thumb.style.transform='translate(-50%,-50%)';});
+document.getElementById('intro').addEventListener('touchstart', startGame);
+function startGame(){
+  if(started) return;
+  started=true; startTime=performance.now(); timerRunning=true;
+  const iv=document.getElementById('intro'); iv.style.opacity=0;
+  setTimeout(()=>iv.style.display='none', 900);
+  setTimeout(()=>document.getElementById('hint').style.opacity=0, 6000);
+}
+
+// ============ PEN COLLISION ============
+function collidePen(ox,oz, p){
+  const r=0.6;
+  const inX = p.x>PX1-r && p.x<PX2+r;
+  // front wall z=PZ2 (has gate gap)
+  if(inX && ((oz>PZ2)!==(p.z>PZ2)) && !(p.x>GX1+0.2 && p.x<GX2-0.2)){ p.z=oz; if(p.vz!==undefined) p.vz=0; }
+  // back wall
+  if(inX && ((oz>PZ1)!==(p.z>PZ1))){ p.z=oz; if(p.vz!==undefined) p.vz=0; }
+  // side walls
+  if((p.z>PZ1-r && p.z<PZ2+r) && ((ox>PX1)!==(p.x>PX1))){ p.x=ox; if(p.vx!==undefined) p.vx=0; }
+  if((p.z>PZ1-r && p.z<PZ2+r) && ((ox>PX2)!==(p.x>PX2))){ p.x=ox; if(p.vx!==undefined) p.vx=0; }
+  // when gate shut, block the gap too
+  if(won && inX && ((oz>PZ2)!==(p.z>PZ2))){ p.z=oz; if(p.vz!==undefined) p.vz=0; }
+}
+function inPen(x,z){ return x>PX1+1 && x<PX2-1 && z>PZ1+1 && z<PZ2-1; }
+
+// ============ GAME LOOP ============
+const clock = new THREE.Clock();
+const fwd = new THREE.Vector3();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // --- player ---
+  let throttle=0, steer=0;
+  if(keys['w']||keys['arrowup']) throttle=1;
+  if(keys['s']||keys['arrowdown']) throttle=-0.5;
+  if(keys['a']||keys['arrowleft']) steer=1;
+  if(keys['d']||keys['arrowright']) steer=-1;
+  if(Math.abs(joyY)>0.1) throttle=joyY;
+  if(Math.abs(joyX)>0.1) steer=-joyX;
+  let py=0, bob=0, spdF=0;
+  let camX, camY, camZ, lookX, lookY, lookZ;
+  if(mode==='ride'){
+    if(won){throttle=0;steer=0;}
+
+    player.speed += (throttle*15 - player.speed) * Math.min(1, dt*2.2);
+    if(Math.abs(player.speed)<0.05 && throttle===0) player.speed=0;
+    spdF = Math.min(1, Math.abs(player.speed)/15);
+    player.yaw += steer * dt * (1.2 + 1.6*spdF) * Math.sign(player.speed>=0?1:-1);
+    const ox=player.x, oz=player.z;
+    player.x += Math.sin(player.yaw)*player.speed*dt;
+    player.z += Math.cos(player.yaw)*player.speed*dt;
+    collidePen(ox,oz,player);
+    const wd = Math.sqrt(player.x*player.x+player.z*player.z);
+    if(wd>150){ player.x*=150/wd; player.z*=150/wd; }
+
+    py = terrainH(player.x, player.z);
+    player.phase += dt * (4 + 14*spdF);
+    bob = Math.sin(player.phase)*0.1*spdF;
+    horse.position.set(player.x, py+bob, player.z);
+    horse.rotation.y = player.yaw;
+    for(const l of hLegs) l.pivot.rotation.x = Math.sin(player.phase+l.ph)*0.65*spdF;
+    tail.rotation.x = 0.5+Math.sin(t*2)*0.1;
+    fwd.set(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+    camX = player.x - fwd.x*10; camZ = player.z - fwd.z*10;
+    camY = Math.max(terrainH(camX,camZ)+2.2, py+4.5);
+    lookX = player.x; lookY = py+2.2; lookZ = player.z;
+  } else {
+    const rf = updateFoot(throttle, steer, dt);
+    updateEwe(dt);
+    tail.rotation.x = 0.5+Math.sin(t*2)*0.1;
+    fwd.set(Math.sin(footYaw), 0, Math.cos(footYaw));
+    camX = footP.x - fwd.x*7; camZ = footP.z - fwd.z*7;
+    camY = Math.max(terrainH(camX,camZ)+1.8, rf.fy+3.2);
+    lookX = footP.x; lookY = rf.fy+1.4; lookZ = footP.z;
+  }
+
+  // --- cattle ---
+  let pennedCount=0;
+  for(const c of cows){
+    if(!won){
+      let ax=0, az=0;
+      const wasIn = inPen(c.x,c.z);
+      // fear of horse
+      const fx=c.x-player.x, fz=c.z-player.z, fd=Math.sqrt(fx*fx+fz*fz);
+      let pressured=false;
+      if(!wasIn && fd<24 && fd>0.01){
+        pressured=true;
+        const push = (1-fd/24) * (6 + 10*spdF);
+        ax += fx/fd*push; az += fz/fd*push;
+      }
+      // herd cohesion + separation
+      let cx=0,cz=0,n=0;
+      for(const o of cows){ if(o===c) continue;
+        const dx=o.x-c.x, dz=o.z-c.z, d=Math.sqrt(dx*dx+dz*dz);
+        if(d<30){cx+=o.x;cz+=o.z;n++;}
+        if(d<3.2 && d>0.01){ ax-=dx/d*(3.2-d)*3; az-=dz/d*(3.2-d)*3; }
+      }
+      if(n>0 && !wasIn){ ax+=((cx/n)-c.x)*0.12; az+=((cz/n)-c.z)*0.12; }
+      // stay on the flat
+      const cd=Math.sqrt(c.x*c.x+c.z*c.z);
+      if(cd>85){ ax-=c.x/cd*4; az-=c.z/cd*4; }
+      // won't take the river
+      const rvd = c.x - riverX(c.z);
+      if(rvd < 20) ax += (20-rvd)*0.7;
+      if(!wasIn){
+        // gate funnel — when pushed near the opening, line up and walk in
+        if(pressured && c.z>PZ2 && c.z<PZ2+16 && c.x>GX1-9 && c.x<GX2+9){
+          const depth = 1 - (c.z-PZ2)/16;              // stronger the closer they are
+          ax += (0 - c.x) * (0.5 + 1.2*depth);
+          az += -(3 + 6*depth);
+        }
+        // fence repulsion — don't jam on rails and corner posts
+        const m = 2.5, S = 6;
+        const nearZ = c.z>PZ1-m && c.z<PZ2+m, nearX = c.x>PX1-m && c.x<PX2+m;
+        if(nearZ){
+          if(c.x<=PX1 && PX1-c.x<m) ax -= (m-(PX1-c.x))*S;
+          if(c.x>=PX2 && c.x-PX2<m) ax += (m-(c.x-PX2))*S;
+        }
+        if(nearX){
+          if(c.z<=PZ1 && PZ1-c.z<m) az -= (m-(PZ1-c.z))*S;
+          if(c.z>=PZ2 && c.z-PZ2<m && !(c.x>GX1-1 && c.x<GX2+1)) az += (m-(c.z-PZ2))*S;
+        }
+      }
+      // settle inside the yards
+      if(wasIn){ ax*=0.15; az*=0.15; c.vx*=0.9; c.vz*=0.9; }
+      c.vx+=ax*dt; c.vz+=az*dt;
+      const sp=Math.sqrt(c.vx*c.vx+c.vz*c.vz), max= wasIn?1.5:8;
+      if(sp>max){c.vx*=max/sp;c.vz*=max/sp;}
+      c.vx*=(1-dt*0.8); c.vz*=(1-dt*0.8);
+      const cox=c.x, coz=c.z;
+      c.x+=c.vx*dt; c.z+=c.vz*dt;
+      collidePen(cox,coz,c);
+      if(Math.abs(c.vx)+Math.abs(c.vz)>0.3) c.yaw = Math.atan2(c.vx,c.vz);
+    }
+    c.penned = inPen(c.x,c.z);
+    if(c.penned) pennedCount++;
+    c.ph += dt*(2+Math.sqrt(c.vx*c.vx+c.vz*c.vz));
+    c.g.position.set(c.x, terrainH(c.x,c.z)+Math.sin(c.ph)*0.04, c.z);
+    c.g.rotation.y = c.yaw;
+  }
+  document.getElementById('penned').textContent = pennedCount;
+  if(started && !won && pennedCount===8){
+    won=true; timerRunning=false;
+    gateTarget = 0; // swing shut
+    const secs = Math.floor((performance.now()-startTime)/1000);
+    document.getElementById('wintime').textContent =
+      `Gate shut in ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')} — good dog work, without the dog.`;
+    setTimeout(()=>document.getElementById('win').style.display='flex', 1400);
+  }
+  gate.rotation.y += (gateTarget-gate.rotation.y)*Math.min(1,dt*3);
+
+  // --- rain ---
+  for(let i=0;i<RAIN_N;i++){
+    const d=rainDrops[i];
+    if(!d.live || d.y < py-15){
+      d.x = camera.position.x + (Math.random()-0.5)*90;
+      d.z = camera.position.z + (Math.random()-0.5)*90;
+      d.y = camera.position.y + 15 + Math.random()*25;
+      d.live=true;
+    }
+    d.y -= 42*dt; d.x += WIND.x*dt; d.z += WIND.z*dt;
+    const j=i*6;
+    rainPos[j]=d.x; rainPos[j+1]=d.y; rainPos[j+2]=d.z;
+    rainPos[j+3]=d.x+WIND.x*0.04; rainPos[j+4]=d.y-1.4; rainPos[j+5]=d.z+WIND.z*0.04;
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+
+  // --- breath ---
+  breathT1-=dt; breathT2-=dt;
+  if(mode==='ride'){
+    if(breathT1<=0){ breathT1 = 1.8+Math.random();
+      puff(player.x+fwd.x*0.4, py+3.5+bob, player.z+fwd.z*0.4, fwd.x*0.4, fwd.z*0.4); }  // rider
+    if(breathT2<=0){ breathT2 = 1.4+Math.random();
+      puff(player.x+fwd.x*2.3, py+2.8+bob, player.z+fwd.z*2.3, fwd.x*0.6, fwd.z*0.6); }  // Fant
+  } else {
+    if(breathT1<=0){ breathT1 = 0.9+Math.random()*0.8;                                   // running hard
+      puff(footP.x+fwd.x*0.2, foot.position.y+1.85, footP.z+fwd.z*0.2, fwd.x*0.5, fwd.z*0.5); }
+    if(breathT2<=0){ breathT2 = 1.6+Math.random();                                       // Fant parked, still steaming
+      const hx=Math.sin(horse.rotation.y), hz=Math.cos(horse.rotation.y);
+      puff(horse.position.x+hx*2.3, horse.position.y+2.8, horse.position.z+hz*2.3, hx*0.3, hz*0.3); }
+  }
+  for(let i=puffs.length-1;i>=0;i--){
+    const p=puffs[i]; p.life+=dt;
+    p.s.position.x += (p.dx+WIND.x*0.05)*dt; p.s.position.y += 0.35*dt; p.s.position.z += (p.dz+WIND.z*0.05)*dt;
+    const k=p.life/1.3;
+    p.s.scale.setScalar(0.25+k*0.9);
+    p.s.material.opacity = 0.55*(1-k);
+    if(k>=1){ scene.remove(p.s); p.s.material.dispose(); puffs.splice(i,1); }
+  }
+
+  // --- camera ---
+  camera.position.lerp(new THREE.Vector3(camX,camY,camZ), 1-Math.pow(0.001,dt));
+  camera.lookAt(lookX, lookY, lookZ);
+
+  // --- timer ---
+  if(timerRunning){
+    const secs = Math.floor((performance.now()-startTime)/1000);
+    document.getElementById('timer').textContent = `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ============ BOSS FIGHT ============
+function updateFoot(throttle, steer, dt){
+  if(chaseOver || eweCaught){ throttle=0; steer=0; }
+  footSpeed += (throttle*7.6 - footSpeed) * Math.min(1, dt*4);
+  const sF = Math.min(1, Math.abs(footSpeed)/7.6);
+  footYaw += steer * dt * 3.0;
+  const ox=footP.x, oz=footP.z;
+  footP.x += Math.sin(footYaw)*footSpeed*dt;
+  footP.z += Math.cos(footYaw)*footSpeed*dt;
+  collidePen(ox,oz,footP);
+  const wd = Math.sqrt(footP.x*footP.x+footP.z*footP.z);
+  if(wd>150){ footP.x*=150/wd; footP.z*=150/wd; }
+  const fy = terrainH(footP.x, footP.z);
+  footPh += dt*(2+12*sF);
+  foot.position.set(footP.x, fy+Math.abs(Math.sin(footPh))*0.07*sF, footP.z);
+  foot.rotation.y = footYaw;
+  fLegL.rotation.x =  Math.sin(footPh)*0.95*sF;
+  fLegR.rotation.x = -Math.sin(footPh)*0.95*sF;
+  fArmL.rotation.x = -Math.sin(footPh)*0.8*sF;
+  fArmR.rotation.x =  Math.sin(footPh)*0.8*sF;
+  return {fy};
+}
+function updateEwe(dt){
+  if(chaseOver) return;
+  const dx=eweP.x-footP.x, dz=eweP.z-footP.z, d=Math.sqrt(dx*dx+dz*dz);
+  if(eweCaught){
+    catchT += dt;
+    eweG.rotation.z = Math.sin(catchT*26)*0.16*(1-Math.min(1,catchT/0.8));  // struggle, then settle
+    if(catchT>0.85) endChase(true);
+    return;
+  }
+  if(!eweBolted && d<18) eweBolted=true;
+  let sx=0, sz=0, spd;
+  if(eweBolted){
+    const fxn=dx/Math.max(d,0.01), fzn=dz/Math.max(d,0.01);
+    eweJt -= dt;
+    if(eweJt<=0){ eweJink=(Math.random()-0.5)*1.5; eweJt=0.45+Math.random()*0.7; }
+    const rb = riverX(eweP.z) < eweP.x ? -1 : 1;   // toward the water
+    sx = fxn + rb*0.95 + (-fzn)*eweJink;
+    sz = fzn + ( fxn)*eweJink;
+    const m=Math.sqrt(sx*sx+sz*sz); sx/=m; sz/=m;
+    spd = 5.9 + (d<7 ? (1-d/7)*1.7 : 0);           // panic burst when you're close
+  } else {
+    eweJt -= dt;
+    if(eweJt<=0){ eweWx=Math.random()-0.5; eweWz=Math.random()-0.5; eweJt=1+Math.random()*1.5; }
+    sx=eweWx; sz=eweWz; spd=0.8;                   // grazing, hasn't clocked you yet
+  }
+  eweV.x += (sx*spd - eweV.x)*Math.min(1,dt*6);
+  eweV.z += (sz*spd - eweV.z)*Math.min(1,dt*6);
+  const eox=eweP.x, eoz=eweP.z;
+  eweP.x += eweV.x*dt; eweP.z += eweV.z*dt;
+  collidePen(eox,eoz,eweP);
+  ewePh += dt*(2+Math.sqrt(eweV.x*eweV.x+eweV.z*eweV.z)*1.6);
+  eweG.position.set(eweP.x, terrainH(eweP.x,eweP.z), eweP.z);
+  const evm = Math.abs(eweV.x)+Math.abs(eweV.z);
+  if(evm>0.3) eweG.rotation.y = Math.atan2(eweV.x,eweV.z);
+  for(const l of eweLegs) l.pivot.rotation.x = Math.sin(ewePh+l.ph)*0.8*Math.min(1,evm/5);
+  if(d<1.7){ eweCaught=true; catchT=0; return; }
+  if(eweP.x < riverX(eweP.z)+6) endChase(false);   // she's made the water
+}
+function startBoss(){
+  document.getElementById('win').style.display='none';
+  document.getElementById('boss').style.display='flex';
+  bossCut=true;
+}
+function beginChase(){
+  if(!bossCut) return;
+  bossCut=false;
+  document.getElementById('boss').style.display='none';
+  mode='boss'; chaseOver=false; eweCaught=false; eweBolted=false; catchT=0;
+  // dismount beside Fant
+  const sx=Math.cos(player.yaw), sz=-Math.sin(player.yaw);
+  footP.x=player.x+sx*1.6; footP.z=player.z+sz*1.6;
+  if(inPen(footP.x,footP.z)) footP.z = PZ2+3;
+  footYaw=player.yaw; footSpeed=0; footPh=0;
+  for(const l of hLegs) l.pivot.rotation.x=0;
+  foot.visible=true;
+  // ewe grazing between the yards and the water
+  eweP.x=-4+Math.random()*6; eweP.z=-26+Math.random()*8;
+  if(eweP.x - riverX(eweP.z) < 28) eweP.x = riverX(eweP.z)+28;
+  eweV.x=eweV.z=0; ewePh=0; eweG.rotation.z=0; eweG.visible=true;
+  started=true; timerRunning=true; startTime=performance.now();
+  const h=document.getElementById('hint');
+  h.textContent='catch the ewe before she makes the river';
+  h.style.opacity=0.9;
+  setTimeout(()=>h.style.opacity=0, 5000);
+}
+function endChase(winB){
+  if(chaseOver) return;
+  chaseOver=true; timerRunning=false;
+  const secs=Math.floor((performance.now()-startTime)/1000);
+  const mm=`${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  document.getElementById('bossEndTitle').textContent = winB ? 'Caught her!' : "She's over the river.";
+  document.getElementById('bossEndLine').textContent = winB
+    ? `Ewe secured in ${mm}. "Not bad, mate," Unc grunts. "Not bad at all."`
+    : '"HA! Told ya she was quick!" Unc is laughing so hard he has to lean on the rails. "I\'ll get the dog, eh."';
+  setTimeout(()=>document.getElementById('bossEnd').style.display='flex', winB?500:800);
+}
+function retryChase(){
+  document.getElementById('bossEnd').style.display='none';
+  bossCut=true; beginChase();
+}
+document.getElementById('boss').addEventListener('click', beginChase);
+
+function resetGame(){
+  won=false; started=false; startTime=0; timerRunning=false;
+  mode='ride'; bossCut=false; chaseOver=false; eweCaught=false; eweBolted=false;
+  foot.visible=false; eweG.visible=false;
+  for(const id of ['win','boss','bossEnd']) document.getElementById(id).style.display='none';
+  document.getElementById('timer').textContent='0:00';
+  const h=document.getElementById('hint');
+  h.textContent='W A S D to ride · push the mob through the gate';
+  h.style.opacity=0.65;
+  player.x=0; player.z=55; player.yaw=Math.PI; player.speed=0;
+  gate.rotation.y = gateTarget = Math.PI/2*0.9;
+  cows.forEach((c,i)=>{ c.x=cowStarts[i][0]; c.z=cowStarts[i][1]; c.vx=c.vz=0; c.penned=false; });
+  const iv=document.getElementById('intro'); iv.style.display='flex';
+  requestAnimationFrame(()=>iv.style.opacity=1);
+}
+
+camera.position.set(0, terrainH(0,65)+5, 65);
+animate();
+</script>
+</body>
+</html>
